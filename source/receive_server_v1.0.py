@@ -371,52 +371,98 @@ def run_gui(ip, port):
     root = tk.Tk()
     root.title("扫码上传 · 打印机主机")
     root.configure(bg="white")
-    root.minsize(460, 720)
+    root.resizable(True, True)
 
-    FONT_TITLE = ("Microsoft YaHei", 18, "bold")
+    # Tk 会按 Windows 当前 DPI 缩放报告逻辑分辨率。窗口尺寸必须基于这里的
+    # 实际可用逻辑尺寸计算，不能假定所有电脑都有 720px 以上的可用高度。
+    screen_w = root.winfo_screenwidth()
+    screen_h = root.winfo_screenheight()
+    compact = screen_h < 800 or screen_w < 1100
+
+    window_w = min(720, max(460, int(screen_w * 0.62)))
+    window_h = min(900, max(520, int(screen_h * 0.88)))
+    window_w = min(window_w, max(420, screen_w - 40))
+    window_h = min(window_h, max(480, screen_h - 80))
+    pos_x = max(0, (screen_w - window_w) // 2)
+    pos_y = max(0, (screen_h - window_h) // 2)
+    root.geometry(f"{window_w}x{window_h}+{pos_x}+{pos_y}")
+    root.minsize(min(420, screen_w), min(480, screen_h))
+
+    # 内容可能高于小屏幕的可用高度。Canvas + Scrollbar 保证任何分辨率、
+    # 任何窗口状态下都能滚动到最下面的“打开上传记录”按钮。
+    shell = tk.Frame(content, bg="white")
+    shell.pack(fill="both", expand=True)
+    canvas = tk.Canvas(shell, bg="white", highlightthickness=0)
+    scrollbar = tk.Scrollbar(shell, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=scrollbar.set)
+    scrollbar.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    content = tk.Frame(canvas, bg="white")
+    content_window = canvas.create_window((0, 0), window=content, anchor="nw")
+
+    def sync_scroll_region(_event=None):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def fit_content_width(event):
+        canvas.itemconfigure(content_window, width=event.width)
+
+    def scroll_content(event):
+        # Windows 的 event.delta 通常为 120 的倍数；触控板也可能给出较小值。
+        step = -1 if event.delta > 0 else 1
+        canvas.yview_scroll(step * 3, "units")
+        return "break"
+
+    content.bind("<Configure>", sync_scroll_region)
+    canvas.bind("<Configure>", fit_content_width)
+    canvas.bind("<MouseWheel>", scroll_content)
+    content.bind("<MouseWheel>", scroll_content)
+
+    FONT_TITLE = ("Microsoft YaHei", 16 if compact else 18, "bold")
     FONT_SUB = ("Microsoft YaHei", 12)
     FONT_INFO = ("Microsoft YaHei", 11)
     COLOR_SUB = "#666666"
     COLOR_OK = "#0f6e56"
 
-    tk.Label(root, text="扫码上传到打印机主机", font=FONT_TITLE,
+    tk.Label(content, text="扫码上传到打印机主机", font=FONT_TITLE,
              bg="white", fg="#185fa5").pack(pady=(24, 2))
-    tk.Label(root, text="连接电脑热点后，扫下方二维码上传文件",
+    tk.Label(content, text="连接电脑热点后，扫下方二维码上传文件",
              font=FONT_SUB, bg="white", fg=COLOR_SUB).pack(pady=(0, 4))
     # WiFi 热点名称 + 密码（醒目提示）
-    tk.Label(root, text="WiFi 热点名称：打印机主机连接",
+    tk.Label(content, text="WiFi 热点名称：打印机主机连接",
              font=("Microsoft YaHei", 14, "bold"),
              bg="white", fg="#b25e00").pack(pady=(0, 2))
-    tk.Label(root, text="WiFi 热点密码：73556088",
+    tk.Label(content, text="WiFi 热点密码：73556088",
              font=("Microsoft YaHei", 14, "bold"),
              bg="white", fg="#b25e00").pack(pady=(0, 10))
 
     # 二维码
-    qr_img = make_qr_png(f"http://{ip}:{port}")
+    qr_size = max(210, min(380, int(screen_h * (0.34 if compact else 0.38))))
+    qr_img = make_qr_png(f"http://{ip}:{port}", box=qr_size)
     if qr_img is not None:
         photo = ImageTk.PhotoImage(qr_img)
-        tk.Label(root, image=photo, bg="white").pack(pady=6)
+        tk.Label(content, image=photo, bg="white").pack(pady=6)
         root._qr_photo = photo  # 防止被 GC
     else:
-        tk.Label(root, text="（二维码生成失败，请用下方地址）",
+        tk.Label(content, text="（二维码生成失败，请用下方地址）",
                  font=FONT_SUB, bg="white", fg="#a32d2d").pack(pady=6)
 
     # 上传地址
     url_text = f"http://{ip}:{port}"
-    tk.Label(root, text="上传地址（也可手动输入）", font=("Microsoft YaHei", 10),
+    tk.Label(content, text="上传地址（也可手动输入）", font=("Microsoft YaHei", 10),
              bg="white", fg=COLOR_SUB).pack()
-    url_label = tk.Label(root, text=url_text, font=("Consolas", 15, "bold"),
+    url_label = tk.Label(content, text=url_text, font=("Consolas", 15, "bold"),
                          bg="white", fg="#185fa5", cursor="hand2")
     url_label.pack(pady=(2, 10))
     url_label.bind("<Button-1>", lambda e: copy_text(url_text))
 
     # 保存目录 + 修改按钮
-    dir_frame = tk.Frame(root, bg="#f0f2f5")
+    dir_frame = tk.Frame(content, bg="#f0f2f5")
     dir_frame.pack(fill="x", padx=36, pady=4)
     tk.Label(dir_frame, text="保存目录：", font=FONT_INFO,
              bg="#f0f2f5", fg=COLOR_SUB).pack(side="left", padx=(10, 0), pady=8)
     dir_value = tk.Label(dir_frame, text=current_dir(), font=("Consolas", 10),
-                         bg="#f0f2f5", fg="#333333", wraplength=280,
+                         bg="#f0f2f5", fg="#333333", wraplength=max(180, window_w - 300),
                          justify="left")
     dir_value.pack(side="left", pady=8, padx=4)
 
@@ -450,15 +496,15 @@ def run_gui(ip, port):
     styled_button(dir_frame, "修改…", change_dir).pack(side="right", padx=10, pady=6)
 
     # 已接收文件列表（点击文件名打开）
-    tk.Label(root, text="已接收文件（点击文件名打开）", font=("Microsoft YaHei", 10),
+    tk.Label(content, text="已接收文件（点击文件名打开）", font=("Microsoft YaHei", 10),
              bg="white", fg=COLOR_SUB).pack(pady=(14, 2))
-    log_box = tk.Text(root, height=6, font=("Microsoft YaHei", 10),
+    log_box = tk.Text(content, height=4 if compact else 6, font=("Microsoft YaHei", 10),
                       bg="#fafbfc", fg="#333333", relief="flat",
                       state="disabled", wrap="word", cursor="hand2")
     log_box.pack(fill="both", expand=True, padx=36, pady=(2, 6))
     log_box.tag_configure("file", foreground="#185fa5", underline=True)
 
-    tk.Label(root, text="点击文件名可打开文件 · 点【修改…】可更改保存位置",
+    tk.Label(content, text="点击文件名可打开文件 · 点【修改…】可更改保存位置",
              font=("Microsoft YaHei", 9), bg="white", fg="#999999").pack(pady=(0, 6))
 
     # 打开上传记录按钮
@@ -475,7 +521,7 @@ def run_gui(ip, port):
             except Exception:
                 pass
 
-    btn_row = tk.Frame(root, bg="white")
+    btn_row = tk.Frame(content, bg="white")
     btn_row.pack(pady=(0, 12))
     styled_button(btn_row, "打开上传记录", open_records).pack(side="left", padx=8)
 
@@ -524,6 +570,8 @@ def run_gui(ip, port):
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     root.after(200, poll_log)
+    root.after_idle(sync_scroll_region)
+    root.after_idle(lambda: canvas.yview_moveto(0))
     root.mainloop()
 
 
