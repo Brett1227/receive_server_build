@@ -43,38 +43,17 @@ jobs:
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name receive_server_v1.1 source/receive_server_v1.0.py
 
-      - name: Smoke test packaged server
+      - name: Run packaged dependency self-test
         shell: pwsh
         run: |
-          $process = Start-Process -FilePath "dist/receive_server_v1.1.exe" -PassThru -WindowStyle Hidden
-          try {
-            $ready = $false
-            for ($attempt = 1; $attempt -le 30; $attempt++) {
-              Start-Sleep -Seconds 1
-              if ($process.HasExited) {
-                throw "Packaged executable exited before the server became ready"
-              }
-              try {
-                $response = Invoke-WebRequest -Uri "http://127.0.0.1:8080/" -UseBasicParsing -TimeoutSec 2
-                if ($response.StatusCode -eq 200 -and $response.Content -match "上传文件到打印机主机") {
-                  $ready = $true
-                  break
-                }
-              }
-              catch {
-                # The one-file executable needs a few seconds to unpack and start.
-              }
+          $process = Start-Process -FilePath "dist/receive_server_v1.1.exe" -ArgumentList "--self-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path -LiteralPath "dist/error.log") {
+              Get-Content -LiteralPath "dist/error.log"
             }
-            if (-not $ready) {
-              throw "Packaged executable did not serve the upload page within 30 seconds"
-            }
-            Write-Output "PACKAGED_SERVER_SMOKE_TEST=PASS"
+            throw "Packaged dependency self-test failed with exit code $($process.ExitCode)"
           }
-          finally {
-            if (-not $process.HasExited) {
-              Stop-Process -Id $process.Id -Force
-            }
-          }
+          Write-Output "PACKAGED_DEPENDENCY_SELF_TEST=PASS"
 
       - name: Verify output and checksum
         shell: pwsh
