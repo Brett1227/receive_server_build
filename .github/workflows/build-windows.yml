@@ -1,0 +1,62 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "source/receive_server_v1.0.py"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build receive_server v1.1
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          architecture: "x64"
+          cache: "pip"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pyinstaller>=6.15" qrcode pillow openpyxl
+
+      - name: Verify GUI dependencies
+        shell: pwsh
+        run: |
+          python -c "import tkinter, qrcode, PIL, openpyxl; print('Tk', tkinter.TkVersion, 'dependencies OK')"
+
+      - name: Build windowed executable
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name receive_server_v1.1 source/receive_server_v1.0.py
+
+      - name: Verify output and checksum
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath "dist/receive_server_v1.1.exe")) {
+            throw "Expected executable was not created"
+          }
+          Get-Item -LiteralPath "dist/receive_server_v1.1.exe" | Select-Object Name, Length
+          Get-FileHash -Algorithm SHA256 -LiteralPath "dist/receive_server_v1.1.exe"
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: receive_server-v1.1-windows
+          path: dist/receive_server_v1.1.exe
+          if-no-files-found: error
+          retention-days: 14
