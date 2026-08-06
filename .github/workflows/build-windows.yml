@@ -43,14 +43,50 @@ jobs:
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name receive_server_v1.1 source/receive_server_v1.0.py
 
+      - name: Smoke test packaged server
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath "dist/receive_server_v1.1.exe" -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            for ($attempt = 1; $attempt -le 30; $attempt++) {
+              Start-Sleep -Seconds 1
+              if ($process.HasExited) {
+                throw "Packaged executable exited before the server became ready"
+              }
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:8080/" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200 -and $response.Content -match "上传文件到打印机主机") {
+                  $ready = $true
+                  break
+                }
+              }
+              catch {
+                # The one-file executable needs a few seconds to unpack and start.
+              }
+            }
+            if (-not $ready) {
+              throw "Packaged executable did not serve the upload page within 30 seconds"
+            }
+            Write-Output "PACKAGED_SERVER_SMOKE_TEST=PASS"
+          }
+          finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
+
       - name: Verify output and checksum
         shell: pwsh
         run: |
           if (-not (Test-Path -LiteralPath "dist/receive_server_v1.1.exe")) {
             throw "Expected executable was not created"
           }
-          Get-Item -LiteralPath "dist/receive_server_v1.1.exe" | Select-Object Name, Length
-          Get-FileHash -Algorithm SHA256 -LiteralPath "dist/receive_server_v1.1.exe"
+          $file = Get-Item -LiteralPath "dist/receive_server_v1.1.exe"
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash
+          Write-Output "EXE_NAME=$($file.Name)"
+          Write-Output "EXE_SIZE=$($file.Length)"
+          Write-Output "EXE_SHA256=$hash"
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
