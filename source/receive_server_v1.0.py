@@ -354,6 +354,31 @@ def make_qr_png(text, box=380):
         return None
 
 
+# ---------------------------------------------------------------- 打包自检
+def run_self_test():
+    """无界面验证打包依赖；供 CI 在没有交互桌面的环境中调用。"""
+    import io
+    import tkinter as tk
+    from openpyxl import Workbook
+
+    # Tcl() 不创建可见窗口，但会加载打包后的 Tcl 运行库和 init.tcl。
+    interp = tk.Tcl()
+    patchlevel = interp.call("info", "patchlevel")
+    if not patchlevel:
+        raise RuntimeError("Tcl/Tk 运行库初始化失败")
+
+    qr_img = make_qr_png("http://127.0.0.1:8080", box=128)
+    if qr_img is None or qr_img.size != (128, 128):
+        raise RuntimeError("二维码/Pillow 自检失败")
+
+    workbook = Workbook()
+    workbook.active.append(["time", "department", "user", "file"])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    if buffer.tell() <= 0:
+        raise RuntimeError("openpyxl 自检失败")
+
+
 # ---------------------------------------------------------------- 界面窗口
 def run_gui(ip, port):
     """主线程运行 tkinter 窗口，返回后程序结束"""
@@ -582,6 +607,9 @@ def run_gui(ip, port):
 def main():
     save_dir = None
     args = sys.argv[1:]
+    if "--self-test" in args:
+        run_self_test()
+        return
     if args and args[0].startswith("--dir"):
         save_dir = args[1] if len(args) > 1 else None
     elif args:
