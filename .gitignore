@@ -1,0 +1,23 @@
+# Build outputs and release assets
+*.exe
+*.msi
+*.zip
+*.7z
+
+# Python build artifacts
+build/
+dist/
+*.spec
+__pycache__/
+*.py[cod]
+
+# Runtime data
+config.json
+received/
+上传记录.xlsx
+
+# Local environment and logs
+.env
+.env.*
+*.log
+*.tmp
