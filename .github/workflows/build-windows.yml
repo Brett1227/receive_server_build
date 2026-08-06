@@ -26,7 +26,6 @@ jobs:
         with:
           python-version: "3.14"
           architecture: "x64"
-          cache: "pip"
 
       - name: Install build dependencies
         shell: pwsh
