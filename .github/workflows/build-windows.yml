@@ -81,7 +81,7 @@ jobs:
           retention-days: 14
 
       - name: Publish v1.1 Release
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
