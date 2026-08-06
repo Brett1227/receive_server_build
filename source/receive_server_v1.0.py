@@ -417,6 +417,8 @@ def run_gui(ip, port):
     canvas.bind("<Configure>", fit_content_width)
     canvas.bind("<MouseWheel>", scroll_content)
     content.bind("<MouseWheel>", scroll_content)
+    # bind_all 让鼠标位于标签、二维码、按钮等子控件上时也能滚动整页。
+    root.bind_all("<MouseWheel>", scroll_content, add="+")
 
     FONT_TITLE = ("Microsoft YaHei", 16 if compact else 18, "bold")
     FONT_SUB = ("Microsoft YaHei", 12)
@@ -566,6 +568,7 @@ def run_gui(ip, port):
         root.after(200, poll_log)
 
     def on_close():
+        root.unbind_all("<MouseWheel>")
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", on_close)
