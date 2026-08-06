@@ -5,10 +5,11 @@
 
 ## 下载与校验
 
-最新正式版本：[receive_server v1.0](https://github.com/Brett1227/receive_server_build/releases/tag/v1.0)
+最新正式版本：[receive_server v1.1](https://github.com/Brett1227/receive_server_build/releases/tag/v1.1)
 
-- 可执行文件：[receive_server_v1.0.exe](https://github.com/Brett1227/receive_server_build/releases/download/v1.0/receive_server_v1.0.exe)
-- SHA-256：`68235CD3CF2A1FB38231027ECC0B8D1796679DA2F5169B9C97395BEB5402FC7B`
+- 可执行文件：[receive_server_v1.1.exe](https://github.com/Brett1227/receive_server_build/releases/download/v1.1/receive_server_v1.1.exe)
+- 文件大小：21,242,238 字节（约 20.3 MB）
+- SHA-256：`0D1B6B97C8297EE01E8C3FD37A090E155CE2FE651E111CC3A79084A093569924`
 
 请只从本仓库的 Releases 下载，并在部署前核对 SHA-256。Windows 可能对未签名程序显示安全提示。
 
@@ -40,7 +41,7 @@ receive_server_build/
 | **在别处复现需求** | 把 `requirements_prompt.md` 整份发给 AI，让它开发 |
 | **继续开发新功能** | 改 `source/receive_server_v1.0.py`，参考开发文档的架构与坑 |
 | **重新打包 exe** | 用 Python 3.14（含 tkinter）+ pyinstaller/qrcode/pillow/openpyxl，执行 `pyinstaller --onefile --windowed --name receive_server receive_server.py` |
-| **部署到主机** | 从 Releases 下载 `receive_server_v1.0.exe`，同时参考 `source/使用说明.txt` |
+| **部署到主机** | 从 Releases 下载 `receive_server_v1.1.exe`，同时参考 `source/使用说明.txt` |
 
 ## 打包环境（复现用）
 
@@ -60,4 +61,5 @@ receive_server_build/
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
+| [v1.1](https://github.com/Brett1227/receive_server_build/releases/tag/v1.1) | 2026-08-06 | 修复不同分辨率和 Windows 缩放比例下的窗口显示；增加页面滚动与打包自检 |
 | [v1.0](https://github.com/Brett1227/receive_server_build/releases/tag/v1.0) | 2026-08-05 | 完整实现 R1~R11 全部需求（见开发文档） |
