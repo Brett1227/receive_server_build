@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: "Publish the verified executable as the v1.1 Release"
+        description: "Publish the verified executable as the v1.2 Release"
         required: true
         default: false
         type: boolean
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build:
-    name: Build receive_server v1.1
+    name: Build receive_server v1.2
     runs-on: windows-latest
 
     steps:
@@ -46,12 +46,12 @@ jobs:
       - name: Build windowed executable
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name receive_server_v1.1 source/receive_server_v1.0.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name receive_server_v1.2 source/receive_server_v1.0.py
 
       - name: Run packaged dependency self-test
         shell: pwsh
         run: |
-          $process = Start-Process -FilePath "dist/receive_server_v1.1.exe" -ArgumentList "--self-test" -Wait -PassThru
+          $process = Start-Process -FilePath "dist/receive_server_v1.2.exe" -ArgumentList "--self-test" -Wait -PassThru
           if ($process.ExitCode -ne 0) {
             if (Test-Path -LiteralPath "dist/error.log") {
               Get-Content -LiteralPath "dist/error.log"
@@ -60,13 +60,25 @@ jobs:
           }
           Write-Output "PACKAGED_DEPENDENCY_SELF_TEST=PASS"
 
+      - name: Run packaged GUI startup smoke test
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath "dist/receive_server_v1.2.exe" -ArgumentList "--gui-smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path -LiteralPath "dist/error.log") {
+              Get-Content -LiteralPath "dist/error.log"
+            }
+            throw "Packaged GUI startup smoke test failed with exit code $($process.ExitCode)"
+          }
+          Write-Output "PACKAGED_GUI_SMOKE_TEST=PASS"
+
       - name: Verify output and checksum
         shell: pwsh
         run: |
-          if (-not (Test-Path -LiteralPath "dist/receive_server_v1.1.exe")) {
+          if (-not (Test-Path -LiteralPath "dist/receive_server_v1.2.exe")) {
             throw "Expected executable was not created"
           }
-          $file = Get-Item -LiteralPath "dist/receive_server_v1.1.exe"
+          $file = Get-Item -LiteralPath "dist/receive_server_v1.2.exe"
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash
           Write-Output "EXE_NAME=$($file.Name)"
           Write-Output "EXE_SIZE=$($file.Length)"
@@ -75,21 +87,27 @@ jobs:
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: receive_server-v1.1-windows
-          path: dist/receive_server_v1.1.exe
+          name: receive_server-v1.2-windows
+          path: dist/receive_server_v1.2.exe
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish v1.1 Release
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+      - name: Publish v1.2 Release
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release) }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $file = Get-Item -LiteralPath "dist/receive_server_v1.1.exe"
+          gh release view v1.2 --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "Release v1.2 already exists; skipping publication."
+            exit 0
+          }
+
+          $file = Get-Item -LiteralPath "dist/receive_server_v1.2.exe"
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash
           $notes = @"
-          ## receive_server v1.1
+          ## receive_server v1.2
 
           本版本修复并优化了不同分辨率和 Windows 缩放比例下的桌面窗口布局。
 
@@ -105,11 +123,11 @@ jobs:
 
           ### 下载与校验
 
-          - 文件：`receive_server_v1.1.exe`
+          - 文件：`receive_server_v1.2.exe`
           - 大小：$($file.Length) 字节
           - SHA-256：`$hash`
 
           Windows 可能对未签名程序显示安全提示。请仅从本 Release 下载，并核对 SHA-256。
           "@
-          Set-Content -LiteralPath "release-notes-v1.1.md" -Value $notes -Encoding utf8
-          gh release create v1.1 "dist/receive_server_v1.1.exe#receive_server_v1.1.exe" --target "$env:GITHUB_SHA" --title "receive_server v1.1" --notes-file "release-notes-v1.1.md" --latest
+          Set-Content -LiteralPath "release-notes-v1.2.md" -Value $notes -Encoding utf8
+          gh release create v1.2 "dist/receive_server_v1.2.exe#receive_server_v1.2.exe" --target "$env:GITHUB_SHA" --title "receive_server v1.2" --notes-file "release-notes-v1.2.md" --latest
