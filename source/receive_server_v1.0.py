@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-扫码直连 · 文件接收服务器 v1.1（响应式窗口版）
+扫码直连 · 文件接收服务器 v1.2（GUI 启动修复版）
 功能：
   1. 启动后弹出一个窗口，大屏幕显示二维码 + 上传地址
   2. 同事手机连上电脑 WiFi 热点，扫屏幕上的二维码即可上传文件
@@ -380,7 +380,7 @@ def run_self_test():
 
 
 # ---------------------------------------------------------------- 界面窗口
-def run_gui(ip, port):
+def run_gui(ip, port, auto_close_ms=None):
     """主线程运行 tkinter 窗口，返回后程序结束"""
     try:
         import tkinter as tk
@@ -415,7 +415,7 @@ def run_gui(ip, port):
 
     # 内容可能高于小屏幕的可用高度。Canvas + Scrollbar 保证任何分辨率、
     # 任何窗口状态下都能滚动到最下面的“打开上传记录”按钮。
-    shell = tk.Frame(content, bg="white")
+    shell = tk.Frame(root, bg="white")
     shell.pack(fill="both", expand=True)
     canvas = tk.Canvas(shell, bg="white", highlightthickness=0)
     scrollbar = tk.Scrollbar(shell, orient="vertical", command=canvas.yview)
@@ -600,6 +600,8 @@ def run_gui(ip, port):
     root.after(200, poll_log)
     root.after_idle(sync_scroll_region)
     root.after_idle(lambda: canvas.yview_moveto(0))
+    if auto_close_ms is not None:
+        root.after(auto_close_ms, root.destroy)
     root.mainloop()
 
 
@@ -609,6 +611,9 @@ def main():
     args = sys.argv[1:]
     if "--self-test" in args:
         run_self_test()
+        return
+    if "--gui-smoke-test" in args:
+        run_gui("127.0.0.1", PORT, auto_close_ms=1500)
         return
     if args and args[0].startswith("--dir"):
         save_dir = args[1] if len(args) > 1 else None
